@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vietnamese RAG QA – Hỏi đáp tài liệu</title>
+  <link rel="stylesheet" href="style.css?v=3" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ── Header ── -->
+    <header>
+      <div class="logo">🇻🇳 Vietnamese RAG QA</div>
+      <div class="subtitle">Hệ thống hỏi–đáp tài liệu pháp lý tiếng Việt</div>
+      <div id="systemStatus" class="status-badge loading">Đang kết nối…</div>
+    </header>
+
+    <!-- ── Main container ── -->
+    <main>
+
+      <!-- ── Sidebar ── -->
+      <aside class="sidebar">
+        <section class="card">
+          <h2>📂 Tài liệu</h2>
+          <div id="docList" class="doc-list">
+            <span class="placeholder">Chưa tải danh sách…</span>
+          </div>
+          <button id="btnRefreshDocs" class="btn btn-secondary btn-sm">🔄 Làm mới</button>
+        </section>
+
+        <section class="card">
+          <h2>⚙️ Cài đặt</h2>
+          <label>
+            Chế độ truy vấn
+            <select id="queryMode">
+              <option value="rag">RAG (có tìm kiếm)</option>
+              <option value="no-rag">Không RAG (LLM thuần)</option>
+              <option value="compare">So sánh cả hai</option>
+            </select>
+          </label>
+          <label>
+            Số đoạn truy xuất (Top-K)
+            <input type="number" id="topK" value="5" min="1" max="20" />
+          </label>
+          <label>
+            Lọc theo tài liệu
+            <select id="filterSource">
+              <option value="">Tất cả tài liệu</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="card">
+          <h2>🗄️ Quản lý Vector DB</h2>
+          <button id="btnIngest" class="btn btn-primary">
+            ⬆️ Nhập tài liệu vào DB
+          </button>
+          <button id="btnIngestRecreate" class="btn btn-warning">
+            ♻️ Xóa &amp; Nhập lại
+          </button>
+          <div id="ingestStatus" class="ingest-status"></div>
+        </section>
+
+        <section class="card">
+          <h2>📊 Đánh giá</h2>
+          <button id="btnEvaluate" class="btn btn-secondary">
+            🧪 Chạy đánh giá (QA_TEST)
+          </button>
+          <div id="evalStatus"></div>
+        </section>
+      </aside>
+
+      <!-- ── Chat panel ── -->
+      <div class="chat-panel">
+        <div id="chatMessages" class="chat-messages">
+          <div class="welcome-msg">
+            <h3>Chào mừng đến với Vietnamese RAG QA! 👋</h3>
+            <p>Nhập câu hỏi về các tài liệu luật bên dưới. Hệ thống sẽ tìm kiếm đoạn văn liên quan và sinh câu trả lời.</p>
+            <ul>
+              <li>📌 Nhập tài liệu trước khi đặt câu hỏi (nút <strong>Nhập tài liệu vào DB</strong>)</li>
+              <li>🔍 Chọn chế độ <strong>So sánh</strong> để thấy RAG vs LLM thuần</li>
+            </ul>
+          </div>
+        </div>
+
+        <form id="queryForm" class="query-form">
+          <textarea
+            id="questionInput"
+            placeholder="Nhập câu hỏi tiếng Việt về tài liệu…"
+            rows="3"
+            required
+          ></textarea>
+          <button type="submit" id="btnAsk" class="btn btn-primary btn-ask">
+            ✉️ Hỏi
+          </button>
+        </form>
+      </div>
+
+    </main>
+
+    <!-- ── Evaluation modal ── -->
+    <div id="evalModal" class="modal hidden">
+      <div class="modal-content">
+        <h2>📊 Kết quả đánh giá</h2>
+        <button class="modal-close" id="evalModalClose">✕</button>
+        <div id="evalResults"></div>
+      </div>
+    </div>
+
+  </div><!-- .app -->
+
+  <script src="marked.min.js?v=3"></script>
+  <script src="app.js?v=3"></script>
+</body>
+</html>

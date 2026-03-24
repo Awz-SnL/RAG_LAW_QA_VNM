@@ -1,0 +1,36 @@
+# Environment / secrets – NEVER commit
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# Test / debug scripts
+test_*.py
+test_extract*.py
+test_pages.py
+
+# Docker volumes / data
+qdrant_storage/
+data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/settings.json
+*.swp
