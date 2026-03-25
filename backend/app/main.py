@@ -14,16 +14,14 @@ Endpoints:
 """
 
 import logging
-import os
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional, Set
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-import numpy as np
-from tqdm import tqdm
+from pydantic import BaseModel, field_validator
 
 from .config import get_settings
 from .document_loader import load_documents_from_folder
@@ -39,31 +37,82 @@ logger = logging.getLogger(__name__)
 
 _store: VectorStore = None
 _pipeline: RAGPipeline = None
+_startup_error: Optional[str] = None
+_llm_config_error: Optional[str] = None
+
+
+def _validate_llm_settings() -> None:
+    settings = get_settings()
+    provider = settings.llm_provider.lower().strip()
+
+    if provider == "glm" and not settings.glm_api_key:
+        raise ValueError("LLM_PROVIDER=glm nhưng GLM_API_KEY đang trống.")
+    if provider == "gemini" and not settings.gemini_api_key:
+        raise ValueError("LLM_PROVIDER=gemini nhưng GEMINI_API_KEY đang trống.")
+    if provider == "openai" and not settings.openai_api_key:
+        raise ValueError("LLM_PROVIDER=openai nhưng OPENAI_API_KEY đang trống.")
+
+
+def _resolve_allowed_sources(settings) -> Set[str]:
+    folder = Path(settings.documents_path)
+    if not folder.exists():
+        return set()
+    return {
+        f.name
+        for f in sorted(list(folder.glob("*.pdf")) + list(folder.glob("*.docx")))
+    }
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialise heavy resources once on startup."""
-    global _store, _pipeline
+    global _store, _pipeline, _startup_error, _llm_config_error
     settings = get_settings()
 
-    logger.info("Loading embedding model: %s", settings.embedding_model)
-    emb_model = get_embedding_model(settings.embedding_model)
+    try:
+        try:
+            _validate_llm_settings()
+            _llm_config_error = None
+        except ValueError as exc:
+            _llm_config_error = str(exc)
+            logger.warning("LLM config warning: %s", _llm_config_error)
 
-    logger.info("Connecting to Qdrant at %s:%d", settings.qdrant_host, settings.qdrant_port)
-    _store = VectorStore(
-        host=settings.qdrant_host,
-        port=settings.qdrant_port,
-        collection_name=settings.collection_name,
-        vector_dim=emb_model.dim,
-    )
+        logger.info("Loading embedding model: %s", settings.embedding_model)
+        emb_model = get_embedding_model(settings.embedding_model)
 
-    _pipeline = RAGPipeline(
-        settings=settings,
-        embedding_model=emb_model,
-        vector_store=_store,
-    )
-    logger.info("RAG system ready.")
+        max_retries = 5
+        retry_delay = 3
+        last_err = None
+        logger.info("Connecting to Qdrant at %s:%d", settings.qdrant_host, settings.qdrant_port)
+        for attempt in range(1, max_retries + 1):
+            try:
+                _store = VectorStore(
+                    host=settings.qdrant_host,
+                    port=settings.qdrant_port,
+                    collection_name=settings.collection_name,
+                    vector_dim=emb_model.dim,
+                )
+                _store.collection_info()
+                last_err = None
+                break
+            except Exception as exc:
+                last_err = exc
+                logger.warning("Qdrant chưa sẵn sàng (lần %d/%d): %s", attempt, max_retries, exc)
+                time.sleep(retry_delay)
+
+        if last_err:
+            raise RuntimeError(f"Không thể kết nối Qdrant sau {max_retries} lần thử: {last_err}")
+
+        _pipeline = RAGPipeline(
+            settings=settings,
+            embedding_model=emb_model,
+            vector_store=_store,
+        )
+        _startup_error = None
+        logger.info("RAG system ready.")
+    except Exception as exc:
+        _startup_error = str(exc)
+        logger.exception("Startup failed: %s", exc)
     yield
     logger.info("Shutting down.")
 
@@ -92,6 +141,13 @@ class QueryRequest(BaseModel):
     top_k: Optional[int] = None
     filter_source: Optional[str] = None
 
+    @field_validator("question")
+    @classmethod
+    def validate_question(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("Question cannot be empty.")
+        return value.strip()
+
 
 class EvaluateRequest(BaseModel):
     qa_test_path: Optional[str] = None   # defaults to QA_TEST.xlsx in documents parent
@@ -101,6 +157,8 @@ class EvaluateRequest(BaseModel):
 
 @app.get("/health", tags=["System"])
 def health():
+    if _startup_error:
+        return {"status": "error", "detail": _startup_error}
     return {"status": "ok"}
 
 
@@ -122,6 +180,10 @@ def info():
         ),
         "collection": collection,
         "top_k": settings.top_k,
+        "retrieval_top_n": settings.retrieval_top_n,
+        "enforce_top_n": settings.enforce_top_n,
+        "startup_error": _startup_error,
+        "llm_config_error": _llm_config_error,
     }
 
 
@@ -193,29 +255,79 @@ def delete_collection():
 @app.post("/query", tags=["QA"])
 def query_rag(req: QueryRequest):
     """Answer a question using RAG (retrieval + LLM)."""
-    if not req.question.strip():
-        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    if _startup_error:
+        raise HTTPException(status_code=503, detail=f"System startup error: {_startup_error}")
+    if _llm_config_error:
+        raise HTTPException(status_code=503, detail=f"LLM config error: {_llm_config_error}")
+    collection = _store.collection_info()
+    if not collection.get("exists") or not collection.get("count"):
+        raise HTTPException(status_code=400, detail="Vector DB đang trống. Hãy gọi /ingest trước khi truy vấn.")
+    settings = get_settings()
+    allowed_sources = _resolve_allowed_sources(settings)
+    if not allowed_sources:
+        raise HTTPException(status_code=400, detail="Không có file trong documents. Hãy thêm PDF/DOCX và ingest lại.")
+
     return _pipeline.answer_with_rag(
         question=req.question,
         top_k=req.top_k,
         filter_source=req.filter_source,
+        allowed_sources=allowed_sources,
     )
+
+
+@app.post("/query/top-passages", tags=["QA"])
+def query_top_passages(req: QueryRequest):
+    """Retrieve top-N passages strictly from ingested documents (no LLM synthesis)."""
+    if _startup_error:
+        raise HTTPException(status_code=503, detail=f"System startup error: {_startup_error}")
+    collection = _store.collection_info()
+    if not collection.get("exists") or not collection.get("count"):
+        raise HTTPException(status_code=400, detail="Vector DB đang trống. Hãy gọi /ingest trước khi truy vấn.")
+    settings = get_settings()
+    allowed_sources = _resolve_allowed_sources(settings)
+    if not allowed_sources:
+        raise HTTPException(status_code=400, detail="Không có file trong documents. Hãy thêm PDF/DOCX và ingest lại.")
+
+    res = _pipeline.retrieve_top_passages(
+        question=req.question,
+        top_n=req.top_k,
+        filter_source=req.filter_source,
+        allowed_sources=allowed_sources,
+    )
+
+    if res["passages_count"] == 0:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đoạn tài liệu phù hợp trong documents đã ingest.")
+    if res["passages_count"] < res["top_n_target"]:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Chỉ tìm thấy {res['passages_count']} đoạn hợp lệ từ documents, "
+                f"chưa đủ {res['top_n_target']} đoạn."
+            ),
+        )
+    return res
 
 
 @app.post("/query/no-rag", tags=["QA"])
 def query_no_rag(req: QueryRequest):
     """Answer a question using LLM only – no retrieval (baseline for comparison)."""
-    if not req.question.strip():
-        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+    if _startup_error:
+        raise HTTPException(status_code=503, detail=f"System startup error: {_startup_error}")
+    if _llm_config_error:
+        raise HTTPException(status_code=503, detail=f"LLM config error: {_llm_config_error}")
     return _pipeline.answer_without_rag(question=req.question)
 
 
 @app.post("/compare", tags=["QA"])
 def compare_rag_vs_no_rag(req: QueryRequest):
     """Run both RAG and no-RAG for the same question and return both answers."""
-    if not req.question.strip():
-        raise HTTPException(status_code=400, detail="Question cannot be empty.")
-    return _pipeline.compare(question=req.question, top_k=req.top_k)
+    if _startup_error:
+        raise HTTPException(status_code=503, detail=f"System startup error: {_startup_error}")
+    if _llm_config_error:
+        raise HTTPException(status_code=503, detail=f"LLM config error: {_llm_config_error}")
+    settings = get_settings()
+    allowed_sources = _resolve_allowed_sources(settings)
+    return _pipeline.compare(question=req.question, top_k=req.top_k, allowed_sources=allowed_sources)
 
 
 @app.post("/evaluate", tags=["Evaluation"])
