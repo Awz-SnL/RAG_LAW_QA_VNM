@@ -13,7 +13,7 @@ Also exposes a "no-RAG" path (pure LLM, no retrieval) for comparison.
 import logging
 import textwrap
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Set
 
 import google.generativeai as genai
 from openai import OpenAI
@@ -146,6 +146,79 @@ class RAGPipeline:
         self.embedding_model = embedding_model
         self.vector_store = vector_store
 
+    def _ranked_top_passages(
+        self,
+        question: str,
+        top_n: int,
+        filter_source: Optional[str] = None,
+        allowed_sources: Optional[Set[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        query_vector = self.embedding_model.encode_query(question)
+        fetch_k = max(top_n * 4, top_n)
+        retrieved_chunks = self.vector_store.search(
+            query_vector=query_vector,
+            top_k=fetch_k,
+            filter_source=filter_source,
+        )
+
+        ranked_passages: List[Dict[str, Any]] = []
+        seen_keys = set()
+
+        for chunk in retrieved_chunks:
+            source = chunk.get("source", "")
+            text = chunk.get("text", "")
+            chunk_id = chunk.get("chunk_id", -1)
+            doc_id = chunk.get("doc_id", "")
+
+            if not source or not text.strip() or chunk_id == -1:
+                continue
+            if allowed_sources and source not in allowed_sources:
+                continue
+
+            dedup_key = (source, chunk_id, doc_id)
+            if dedup_key in seen_keys:
+                continue
+            seen_keys.add(dedup_key)
+
+            ranked_passages.append(
+                {
+                    "rank": len(ranked_passages) + 1,
+                    "text": text,
+                    "score": chunk.get("score", 0.0),
+                    "source": source,
+                    "chunk_id": chunk_id,
+                    "doc_id": doc_id,
+                }
+            )
+
+            if len(ranked_passages) == top_n:
+                break
+
+        return ranked_passages
+
+    def retrieve_top_passages(
+        self,
+        question: str,
+        top_n: Optional[int] = None,
+        filter_source: Optional[str] = None,
+        allowed_sources: Optional[Set[str]] = None,
+    ) -> Dict[str, Any]:
+        n = self.settings.retrieval_top_n if self.settings.enforce_top_n else (top_n or self.settings.top_k)
+        ranked_passages = self._ranked_top_passages(
+            question=question,
+            top_n=n,
+            filter_source=filter_source,
+            allowed_sources=allowed_sources,
+        )
+
+        return {
+            "question": question,
+            "top_n_target": n,
+            "passages_count": len(ranked_passages),
+            "ranked_passages": ranked_passages,
+            "mode": "retrieval",
+        }
+
     # ── Main: with RAG ────────────────────────────────────────────────────────
 
     def answer_with_rag(
@@ -153,6 +226,7 @@ class RAGPipeline:
         question: str,
         top_k: Optional[int] = None,
         filter_source: Optional[str] = None,
+        allowed_sources: Optional[Set[str]] = None,
     ) -> Dict[str, Any]:
         """
         Full RAG pipeline.
@@ -165,35 +239,44 @@ class RAGPipeline:
                 "mode":       "rag",
             }
         """
-        k = top_k or self.settings.top_k
-
-        # 1. Embed query
-        query_vector = self.embedding_model.encode_query(question)
-
-        # 2. Retrieve similar chunks
-        retrieved_chunks = self.vector_store.search(
-            query_vector=query_vector,
-            top_k=k,
+        n = self.settings.retrieval_top_n if self.settings.enforce_top_n else (top_k or self.settings.top_k)
+        ranked_passages = self._ranked_top_passages(
+            question=question,
+            top_n=n,
             filter_source=filter_source,
+            allowed_sources=allowed_sources,
         )
 
-        if not retrieved_chunks:
+        if not ranked_passages:
             return {
                 "question": question,
                 "answer": "Không tìm thấy tài liệu liên quan trong cơ sở dữ liệu. "
                           "Vui lòng kiểm tra lại hoặc tải tài liệu vào hệ thống.",
+                "top_n_target": n,
+                "passages_count": 0,
+                "ranked_passages": [],
                 "retrieved": [],
                 "mode": "rag",
             }
 
         # 3. Build prompt + call LLM
-        user_prompt = _build_rag_prompt(question, retrieved_chunks)
+        prompt_chunks = [
+            {
+                "source": passage["source"],
+                "text": passage["text"],
+            }
+            for passage in ranked_passages
+        ]
+        user_prompt = _build_rag_prompt(question, prompt_chunks)
         answer = _call_llm(RAG_SYSTEM_PROMPT, user_prompt, self.settings)
 
         return {
             "question": question,
             "answer": answer,
-            "retrieved": retrieved_chunks,
+            "top_n_target": n,
+            "passages_count": len(ranked_passages),
+            "ranked_passages": ranked_passages,
+            "retrieved": ranked_passages,
             "mode": "rag",
         }
 
@@ -217,9 +300,10 @@ class RAGPipeline:
         self,
         question: str,
         top_k: Optional[int] = None,
+        allowed_sources: Optional[Set[str]] = None,
     ) -> Dict[str, Any]:
         """Run both RAG and no-RAG and return side-by-side results."""
-        rag_result = self.answer_with_rag(question, top_k=top_k)
+        rag_result = self.answer_with_rag(question, top_k=top_k, allowed_sources=allowed_sources)
         no_rag_result = self.answer_without_rag(question)
         return {
             "question": question,
