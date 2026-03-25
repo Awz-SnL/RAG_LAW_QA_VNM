@@ -34,14 +34,14 @@
           <label>
             Chế độ truy vấn
             <select id="queryMode">
-              <option value="rag">RAG (có tìm kiếm)</option>
+              <option value="rag">RAG (Top 3 đoạn tài liệu)</option>
               <option value="no-rag">Không RAG (LLM thuần)</option>
               <option value="compare">So sánh cả hai</option>
             </select>
           </label>
           <label>
-            Số đoạn truy xuất (Top-K)
-            <input type="number" id="topK" value="5" min="1" max="20" />
+            Số đoạn truy xuất (khóa = 3)
+            <input type="number" id="topK" value="3" min="3" max="3" disabled />
           </label>
           <label>
             Lọc theo tài liệu
@@ -79,7 +79,7 @@
             <p>Nhập câu hỏi về các tài liệu luật bên dưới. Hệ thống sẽ tìm kiếm đoạn văn liên quan và sinh câu trả lời.</p>
             <ul>
               <li>📌 Nhập tài liệu trước khi đặt câu hỏi (nút <strong>Nhập tài liệu vào DB</strong>)</li>
-              <li>🔍 Chọn chế độ <strong>So sánh</strong> để thấy RAG vs LLM thuần</li>
+              <li>🔍 Chế độ RAG sẽ trả về <strong>Top 3 đoạn</strong> liên quan trong documents đã ingest</li>
             </ul>
           </div>
         </div>
