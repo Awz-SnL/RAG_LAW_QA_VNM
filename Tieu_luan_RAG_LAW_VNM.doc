@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<title>Tiểu luận - Hệ thống RAG hỏi đáp pháp luật Việt Nam</title>
+<style>
+  @page { size: A4; margin: 2.5cm 2.5cm 2.5cm 3cm; }
+  body { font-family: "Times New Roman", serif; font-size: 14pt; line-height: 1.6; text-align: justify; }
+  h1 { font-size: 20pt; text-align: center; margin: 0; }
+  h2 { font-size: 16pt; margin-top: 28px; margin-bottom: 10px; }
+  h3 { font-size: 14pt; margin-top: 18px; margin-bottom: 8px; }
+  p { margin: 8px 0; }
+  .center { text-align: center; }
+  .cover { page-break-after: always; }
+  .toc { page-break-after: always; }
+  .caption { text-align: center; font-style: italic; font-size: 13pt; }
+  .mono { font-family: "Courier New", monospace; font-size: 12pt; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th, td { border: 1px solid #000; padding: 8px; vertical-align: top; }
+  ul { margin-top: 6px; margin-bottom: 6px; }
+  li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <p class="center"><b>BỘ GIÁO DỤC VÀ ĐÀO TẠO</b></p>
+  <p class="center"><b>TRƯỜNG ....................................</b></p>
+  <br/><br/>
+  <h1>TIỂU LUẬN</h1>
+  <h1>HỆ THỐNG HỎI ĐÁP PHÁP LUẬT VIỆT NAM
+  ỨNG DỤNG RAG, LLM VÀ PROMPT ENGINEERING</h1>
+  <br/><br/>
+  <p><b>Học phần:</b> ............................................................</p>
+  <p><b>Giảng viên hướng dẫn:</b> .................................................</p>
+  <p><b>Sinh viên thực hiện:</b> ..................................................</p>
+  <p><b>Mã sinh viên:</b> .........................................................</p>
+  <p><b>Lớp:</b> ................................................................</p>
+  <br/><br/><br/>
+  <p class="center">Tháng 03 năm 2026</p>
+</div>
+
+<div class="toc">
+  <h2 class="center">MỤC LỤC</h2>
+  <p>1. Đặt vấn đề ............................................................................... 1</p>
+  <p>2. Kiến thức cơ sở .......................................................................... 3</p>
+  <p>3. Phương pháp giải quyết vấn đề và mô hình ............................................. 8</p>
+  <p>4. Mô tả dữ liệu ............................................................................ 16</p>
+  <p>5. Thí nghiệm ............................................................................... 19</p>
+  <p>6. Phân tích và thảo luận .................................................................. 23</p>
+  <p>7. Kết luận và hướng cải tiến ............................................................ 27</p>
+  <p>8. Tài liệu tham khảo ...................................................................... 29</p>
+  <p>Phụ lục ....................................................................................... 31</p>
+</div>
+
+<h2>1. Đặt vấn đề</h2>
+<p>Trong bối cảnh chuyển đổi số quốc gia, nhu cầu truy xuất và giải thích văn bản pháp luật nhanh, chính xác và có căn cứ nguồn ngày càng cấp thiết. Các hệ thống hỏi đáp pháp lý truyền thống dựa trên tìm kiếm từ khóa thường gặp ba hạn chế chính: (i) không nắm được ngữ nghĩa câu hỏi dài hoặc mơ hồ, (ii) khó tổng hợp thông tin xuyên nhiều điều khoản, và (iii) thiếu cơ chế sinh câu trả lời tự nhiên cho người dùng cuối. Sự phát triển của Mô hình ngôn ngữ lớn (Large Language Models - LLM) mở ra khả năng tạo đáp án giàu ngữ cảnh, tuy nhiên lại đối mặt rủi ro bịa đặt thông tin (hallucination), đặc biệt trong miền pháp lý vốn đòi hỏi độ chính xác cao.</p>
+<p>Để giải quyết mâu thuẫn giữa tính linh hoạt của LLM và yêu cầu tính đúng đắn pháp lý, tiểu luận này triển khai và phân tích một hệ thống hỏi đáp pháp luật Việt Nam theo kiến trúc Retrieval-Augmented Generation (RAG). Hệ thống được hiện thực trên mã nguồn RAG_LAW_QA_VNM-master với ba lớp chính gồm giao diện người dùng (frontend), dịch vụ suy luận (backend FastAPI), và kho vector Qdrant. Tài liệu pháp lý ở định dạng PDF hoặc DOCX được tiền xử lý, chia đoạn, mã hóa embedding và lập chỉ mục vector. Khi người dùng đặt câu hỏi, hệ thống truy hồi các đoạn văn có liên quan nhất để làm ngữ cảnh bắt buộc cho LLM sinh câu trả lời.</p>
+<p>Mục tiêu nghiên cứu gồm: (1) hệ thống hóa nền tảng lý thuyết LLM và Prompt Engineering; (2) mô tả kiến trúc ghép nối end-to-end của hệ thống RAG; (3) làm rõ chiến lược thiết kế prompt nhằm ép LLM trả lời dựa trên tài liệu thay vì tri thức ngoại sinh; (4) đánh giá thực nghiệm thông qua các chỉ số EM, Token-F1, ROUGE-L và Grounding; (5) đề xuất hướng cải tiến để nâng độ tin cậy khi triển khai thực tế.</p>
+<p>Đóng góp chính của báo cáo là kết nối chặt chẽ giữa lý thuyết và thực hành kỹ thuật. Toàn bộ nhận định về mô hình, đường đi dữ liệu, API, chiến lược prompt và cơ chế đánh giá đều được truy xuất từ mã nguồn hiện trạng của hệ thống, từ đó bảo đảm tính tái lập và tính minh bạch học thuật.</p>
+
+<h2>2. Kiến thức cơ sở</h2>
+<h3>2.1. Tổng quan về Mô hình ngôn ngữ lớn (LLM)</h3>
+<p>LLM là các mô hình học sâu có quy mô lớn, được huấn luyện trên kho ngữ liệu khổng lồ nhằm dự đoán token kế tiếp trong chuỗi văn bản. Cốt lõi của LLM hiện đại là kiến trúc Transformer, trong đó cơ chế self-attention cho phép mô hình nắm bắt phụ thuộc dài hạn giữa các từ. Trong suy luận tự hồi quy, mô hình nhận vào prompt, xây dựng phân phối xác suất trên tập token và chọn token tiếp theo theo chiến lược giải mã (greedy, sampling, top-p, top-k).</p>
+<p>Ưu điểm của LLM gồm khả năng hiểu ngữ cảnh rộng, diễn đạt tự nhiên và thích nghi đa nhiệm qua prompt mà không cần fine-tuning sâu cho mọi bài toán. Tuy nhiên, đối với miền pháp lý, LLM thuần có một số rủi ro đáng kể:</p>
+<ul>
+  <li>Thông tin lỗi thời hoặc không bám văn bản pháp quy hiện hành.</li>
+  <li>Hallucination khi thiếu bằng chứng nhưng vẫn tạo đáp án tự tin.</li>
+  <li>Khó kiểm chứng truy vết nguồn câu trả lời.</li>
+  <li>Nhạy cảm với cách đặt prompt và ngữ cảnh hội thoại.</li>
+</ul>
+<p>Vì vậy, để ứng dụng LLM trong hỏi đáp pháp luật, cần cơ chế neo câu trả lời vào nguồn dữ liệu chuẩn. RAG là phương án tiêu biểu khi kết hợp truy hồi tri thức ngoài với khả năng sinh ngôn ngữ của LLM.</p>
+
+<h3>2.2. Retrieval-Augmented Generation (RAG)</h3>
+<p>RAG gồm hai pha chính. Pha truy hồi (retrieval) biến câu hỏi thành vector và tìm các đoạn tài liệu tương tự trong kho vector. Pha sinh (generation) đưa các đoạn truy hồi vào prompt để LLM tổng hợp đáp án. Nhờ đó, mô hình không phải phụ thuộc hoàn toàn vào tri thức tiền huấn luyện mà có thể trả lời dựa trên bằng chứng cập nhật trong tài liệu nghiệp vụ.</p>
+<p>Trong bài toán pháp lý tiếng Việt, RAG mang lại các lợi ích: (i) bám sát điều khoản luật cụ thể, (ii) tăng khả năng trích nguồn, (iii) giảm bịa đặt, và (iv) dễ kiểm toán do có danh sách đoạn truy hồi kèm điểm tương đồng.</p>
+
+<h3>2.3. Embedding và truy hồi ngữ nghĩa</h3>
+<p>Embedding là phép ánh xạ văn bản sang vector liên tục trong không gian nhiều chiều. Hai đoạn có ngữ nghĩa tương cận sẽ có vector gần nhau theo một độ đo như cosine similarity. Hệ thống sử dụng mô hình keepitreal/vietnamese-sbert cho tiếng Việt, chiều vector 768. Khi ingest tài liệu, mỗi chunk được mã hóa thành vector và lưu vào Qdrant cùng metadata (nguồn file, chỉ số chunk, tổng số chunk, trạng thái OCR).</p>
+<p>Khi truy vấn, câu hỏi cũng được mã hóa embedding và tìm top-k chunk tương tự nhất. Các chunk này trở thành CONTEXT cho LLM, đóng vai trò bằng chứng nội sinh tại thời điểm trả lời.</p>
+
+<h3>2.4. Prompt Engineering cho hệ thống pháp lý</h3>
+<p>Prompt Engineering là kỹ thuật thiết kế chỉ dẫn để điều khiển hành vi LLM theo mục tiêu cụ thể. Với miền pháp lý, mục tiêu ưu tiên là tính đúng đắn và khả năng kiểm chứng, không phải sáng tạo ngôn ngữ. Do đó, prompt cần có các thành phần bắt buộc:</p>
+<ul>
+  <li>Vai trò hệ thống rõ ràng: trợ lý pháp lý tiếng Việt.</li>
+  <li>Ràng buộc nguồn: chỉ trả lời từ CONTEXT được cung cấp.</li>
+  <li>Quy tắc từ chối: nếu thiếu thông tin thì trả lời không tìm thấy trong tài liệu.</li>
+  <li>Yêu cầu trích dẫn nguồn theo tên tài liệu.</li>
+  <li>Ràng buộc định dạng đầu ra để dễ đọc, thống nhất.</li>
+</ul>
+<p>Thiết kế này biến prompt thành cơ chế kiểm soát an toàn. Mặc dù không loại bỏ hoàn toàn sai lệch, prompt đúng giúp giảm đáng kể xác suất mô hình sinh thông tin ngoài bằng chứng.</p>
+
+<h3>2.5. Chỉ số đánh giá cho QA pháp lý</h3>
+<p>Để so sánh RAG với LLM không RAG, hệ thống dùng các chỉ số sau:</p>
+<ul>
+  <li>Exact Match (EM): tỷ lệ đáp án trùng hoàn toàn với câu tham chiếu sau chuẩn hóa.</li>
+  <li>Token-F1: trung bình điều hòa giữa precision và recall trên tập token chung.</li>
+  <li>ROUGE-L: đo độ phủ theo chuỗi con chung dài nhất (LCS).</li>
+  <li>Grounding score: tỷ lệ token tham chiếu xuất hiện trong đáp án, phản ánh mức bám nguồn.</li>
+</ul>
+<p>Bộ chỉ số hỗn hợp này giúp đánh giá cả mức khớp bề mặt lẫn mức bao phủ nội dung, đặc biệt hữu ích cho tác vụ pháp lý nơi cách diễn đạt có thể khác nhưng ý nghĩa cần nhất quán.</p>
+
+<h2>3. Phương pháp giải quyết vấn đề và mô hình</h2>
+<h3>3.1. Bài toán và định hướng giải quyết</h3>
+<p>Bài toán đặt ra là xây dựng trợ lý hỏi đáp pháp luật tiếng Việt có khả năng phản hồi tự nhiên nhưng phải dựa trên tài liệu pháp lý nội bộ. Giải pháp được chọn là kiến trúc ghép nối RAG gồm ba tầng: tầng trình bày (frontend), tầng ứng dụng (backend API + RAG pipeline), và tầng dữ liệu tri thức (Qdrant + kho tài liệu). Quy trình vận hành gồm hai luồng chính: ingest tri thức và query trả lời.</p>
+
+<h3>3.2. Sơ đồ kiến trúc tổng thể hệ thống ghép nối</h3>
+<p class="mono">Nguồn sơ đồ Mermaid lưu tại report/kien_truc_he_thong.mmd để xuất PNG khi nộp.</p>
+<p class="mono">documents (PDF/DOCX) -> Document Loader -> Chunking -> Embedding -> Qdrant</p>
+<p class="mono">User -> Frontend (Nginx) -> FastAPI /query -> Retrieval top-k -> Prompt Builder -> LLM -> Answer + citations</p>
+<p class="caption">Hình 1. Kiến trúc tổng thể hệ thống RAG hỏi đáp pháp luật Việt Nam</p>
+
+<table>
+  <tr><th>Thành phần</th><th>Chức năng</th><th>Công nghệ chính</th></tr>
+  <tr><td>Frontend</td><td>Nhập câu hỏi, chọn chế độ RAG/No-RAG/Compare, hiển thị đáp án và nguồn</td><td>HTML/CSS/JS, Nginx</td></tr>
+  <tr><td>Backend API</td><td>Điều phối ingest, query, compare, evaluate</td><td>FastAPI, Pydantic</td></tr>
+  <tr><td>Pipeline RAG</td><td>Embedding câu hỏi, truy hồi top-k, dựng prompt, gọi LLM</td><td>SBERT + OpenAI/Gemini/GLM</td></tr>
+  <tr><td>Vector Store</td><td>Lưu vector chunk, tìm kiếm cosine similarity</td><td>Qdrant</td></tr>
+  <tr><td>Document Loader</td><td>Đọc PDF/DOCX, fallback OCR, chia chunk overlap</td><td>pdfplumber, pytesseract, python-docx</td></tr>
+  <tr><td>Evaluator</td><td>Đánh giá batch theo EM/F1/ROUGE-L/Grounding</td><td>pandas, rouge-score</td></tr>
+</table>
+
+<h3>3.3. Luồng ingest dữ liệu</h3>
+<p>Luồng ingest bắt đầu từ API POST /ingest. Hệ thống quét thư mục documents, đọc file PDF/DOCX và chuẩn hóa văn bản tiếng Việt. Với PDF ảnh quét, hệ thống có nhánh OCR (nếu phụ thuộc OCR khả dụng). Văn bản sau đó được chia theo cửa sổ trượt ở mức từ với cấu hình mặc định chunk_size=400, overlap=50. Từng chunk được mã hóa embedding, sau đó upsert vào collection Qdrant. Mỗi bản ghi có metadata nguồn để phục vụ truy vết khi trả lời.</p>
+
+<h3>3.4. Luồng truy vấn và sinh đáp án</h3>
+<p>Khi người dùng gửi câu hỏi qua POST /query, pipeline thực hiện:</p>
+<ul>
+  <li>Mã hóa câu hỏi thành query vector.</li>
+  <li>Tìm top-k chunk tương tự trong Qdrant theo cosine similarity.</li>
+  <li>Dựng prompt người dùng gồm khối CONTEXT với nhãn nguồn cho từng đoạn.</li>
+  <li>Gọi LLM theo nhà cung cấp cấu hình (Gemini/OpenAI/GLM).</li>
+  <li>Trả về answer cùng danh sách retrieved để frontend hiển thị trích nguồn.</li>
+</ul>
+<p>Ngoài ra, hệ thống có /query/no-rag để lấy đáp án baseline không truy hồi, và /compare để so sánh trực tiếp hai chế độ.</p>
+
+<h3>3.5. Chiến lược thiết kế prompt ép LLM trả lời dựa trên tài liệu</h3>
+<p>Chiến lược prompt của hệ thống được hiện thực bằng một system prompt ràng buộc 6 quy tắc. Điểm trọng tâm là hai ràng buộc cứng: chỉ trả lời từ CONTEXT và không được bịa đặt ngoài CONTEXT. Cùng lúc, prompt định nghĩa câu trả lời mặc định nếu thiếu thông tin: "Tôi không tìm thấy thông tin này trong tài liệu." Đây là cơ chế từ chối có kiểm soát để giảm đáp án sai tự tin.</p>
+<p>User prompt được dựng từ danh sách chunk truy hồi, mỗi chunk có nhãn "Đoạn i - Nguồn: tên_file". Cấu trúc này tạo hiệu ứng neo bằng chứng, giúp LLM gắn nội dung sinh ra với đoạn văn bản cụ thể. Yêu cầu trích dẫn tên file làm tăng khả năng kiểm tra chéo của người dùng cuối.</p>
+<p>Về góc nhìn kỹ thuật an toàn, chiến lược prompt đang áp dụng ba lớp kiểm soát:</p>
+<ul>
+  <li>Control by instruction: ràng buộc vai trò và phạm vi tri thức.</li>
+  <li>Control by evidence: ép mô hình dựa vào context retrieval.</li>
+  <li>Control by fallback: bắt buộc từ chối khi không đủ căn cứ.</li>
+</ul>
+<p>Đây là mô hình phù hợp cho tác vụ pháp lý, nơi độ tin cậy quan trọng hơn mức độ phong phú diễn đạt.</p>
+
+<h3>3.6. Mô hình triển khai và khả năng vận hành</h3>
+<p>Hệ thống triển khai bằng Docker Compose với ba service. Backend duy trì trạng thái nhẹ, còn tri thức vector lưu bền ở Qdrant volume. Cấu trúc này giúp tái lập thuận tiện trong học thuật và dễ nâng cấp lên môi trường staging/production. Tuy nhiên, để triển khai thực tế quy mô lớn, cần bổ sung xác thực API, kiểm soát CORS, logging bảo mật và cơ chế quan trắc chất lượng truy hồi theo thời gian.</p>
+
+<h2>4. Mô tả dữ liệu</h2>
+<h3>4.1. Nguồn dữ liệu tài liệu</h3>
+<p>Dữ liệu đầu vào của hệ thống gồm các văn bản pháp lý tiếng Việt đặt trong thư mục documents dưới dạng PDF hoặc DOCX. Theo cấu trúc repo, có các tệp luật tiêu biểu như Luật-109-2025-QH15 và Luật-67-2025-QH15. Dữ liệu này đại diện cho tri thức miền mà hệ thống được phép sử dụng để trả lời.</p>
+
+<h3>4.2. Dữ liệu đánh giá</h3>
+<p>Hệ thống đánh giá sử dụng tệp QA_TEST.xlsx gồm cặp câu hỏi - câu trả lời tham chiếu. Trình nạp dữ liệu đánh giá hỗ trợ đa biến thể tên cột tiếng Việt/tiếng Anh, sau đó chuẩn hóa về hai trường question và reference.</p>
+
+<h3>4.3. Tiền xử lý văn bản</h3>
+<p>Pipeline tiền xử lý gồm: tách văn bản từ tài liệu, làm sạch ký tự điều khiển, chuẩn hóa khoảng trắng, nối từ bị ngắt dòng trong PDF, và chia chunk bằng cửa sổ trượt. Cách chia chunk theo từ giúp cân bằng giữa ngữ cảnh đủ dài và độ chính xác truy hồi, đồng thời giảm mất mạch nội dung ở ranh giới chunk nhờ overlap.</p>
+
+<h3>4.4. Siêu dữ liệu và khả năng truy vết</h3>
+<p>Mỗi chunk được gắn metadata gồm source, chunk_id, total_chunks và cờ OCR. Thiết kế này hỗ trợ truy vết nguồn trong giao diện, góp phần tăng tính minh bạch khi giải thích đáp án pháp lý cho người dùng.</p>
+
+<h2>5. Thí nghiệm</h2>
+<h3>5.1. Mục tiêu thí nghiệm</h3>
+<p>Thí nghiệm nhằm kiểm chứng giả thuyết: RAG + Prompt Engineering grounded sẽ cho chất lượng trả lời và độ bám nguồn cao hơn LLM không RAG trong miền pháp lý tiếng Việt.</p>
+
+<h3>5.2. Cấu hình thực nghiệm</h3>
+<ul>
+  <li>Embedding model: keepitreal/vietnamese-sbert.</li>
+  <li>Vector DB: Qdrant, metric cosine.</li>
+  <li>Top-k mặc định: 5.</li>
+  <li>Chunk size/overlap: 400/50 từ.</li>
+  <li>LLM provider: cấu hình linh hoạt Gemini, OpenAI hoặc GLM.</li>
+  <li>Nhiệt độ sinh câu trả lời: 0.2 (nhánh OpenAI tương thích).</li>
+</ul>
+
+<h3>5.3. Quy trình thực nghiệm</h3>
+<ol>
+  <li>Khởi động hệ thống bằng Docker Compose.</li>
+  <li>Gọi ingest để lập chỉ mục toàn bộ tài liệu.</li>
+  <li>Chạy batch evaluate trên QA_TEST.xlsx.</li>
+  <li>Tính chỉ số trung bình cho 2 cấu hình: RAG và No-RAG.</li>
+  <li>Phân tích câu trả lời theo từng câu hỏi đại diện.</li>
+</ol>
+
+<h3>5.4. Chỉ số và ý nghĩa</h3>
+<p>EM và Token-F1 phản ánh mức khớp trực tiếp với đáp án tham chiếu. ROUGE-L đo mức bao phủ theo trật tự nội dung. Grounding score phản ánh mức bám token tham chiếu, từ đó gián tiếp đánh giá rủi ro bịa đặt. Trong bối cảnh pháp lý, chỉ số Grounding có ý nghĩa thực tiễn vì gắn với yêu cầu truy vết bằng chứng.</p>
+
+<h3>5.5. Khuôn mẫu kết quả (điền số liệu khi chạy batch thực tế)</h3>
+<table>
+  <tr><th>Chỉ số</th><th>RAG</th><th>No-RAG</th><th>Nhận xét</th></tr>
+  <tr><td>Exact Match</td><td>...</td><td>...</td><td>RAG kỳ vọng cao hơn ở câu hỏi factoid</td></tr>
+  <tr><td>Token-F1</td><td>...</td><td>...</td><td>RAG ổn định hơn nhờ truy hồi ngữ cảnh</td></tr>
+  <tr><td>ROUGE-L</td><td>...</td><td>...</td><td>RAG bao phủ nội dung tham chiếu tốt hơn</td></tr>
+  <tr><td>Grounding</td><td>...</td><td>...</td><td>RAG giảm nguy cơ hallucination</td></tr>
+</table>
+
+<h2>6. Phân tích và thảo luận</h2>
+<h3>6.1. Điểm mạnh của giải pháp hiện tại</h3>
+<ul>
+  <li>Kiến trúc rõ ràng, tách lớp giao diện - dịch vụ - tri thức.</li>
+  <li>Có baseline No-RAG và endpoint compare để đánh giá định lượng.</li>
+  <li>Prompt ràng buộc trực tiếp hành vi grounded, có câu từ chối chuẩn.</li>
+  <li>Danh sách retrieved chunks được trả về cùng đáp án, thuận tiện kiểm chứng.</li>
+  <li>Tích hợp đánh giá batch theo nhiều chỉ số, hỗ trợ vòng lặp cải tiến.</li>
+</ul>
+
+<h3>6.2. Hạn chế</h3>
+<ul>
+  <li>Chưa có bước re-ranking hoặc hybrid retrieval (BM25 + dense).</li>
+  <li>Chưa có ngưỡng tin cậy động theo score để quyết định trả lời/từ chối.</li>
+  <li>OCR phụ thuộc môi trường cài đặt, dễ biến thiên chất lượng trích xuất.</li>
+  <li>Đánh giá grounding hiện dựa token overlap, chưa phản ánh đầy đủ tính đúng đắn pháp lý.</li>
+  <li>CORS mở rộng và chưa có lớp xác thực, chưa phù hợp triển khai production.</li>
+</ul>
+
+<h3>6.3. Vai trò thực tiễn của Prompt Engineering</h3>
+<p>Trong hệ thống này, prompt không chỉ là hướng dẫn ngôn ngữ mà là thành phần điều khiển an toàn nghiệp vụ. Khi retrieval có nhiễu hoặc thiếu, quy tắc fallback giúp hệ thống giảm phát biểu sai có vẻ thuyết phục. Nhờ yêu cầu trích nguồn, người dùng có thể truy ngược văn bản gốc để xác minh, nâng mức tin cậy của trợ lý pháp lý.</p>
+
+<h3>6.4. So sánh RAG và No-RAG về rủi ro</h3>
+<p>No-RAG có ưu điểm tốc độ và phạm vi kiến thức rộng, nhưng dễ trả lời ngoài phạm vi tài liệu nội bộ. Ngược lại, RAG bó hẹp không gian tri thức về các chunk truy hồi, nên phù hợp hơn với yêu cầu tuân thủ. Trong miền pháp lý, đánh đổi này là hợp lý vì giảm rủi ro sai lệch quan trọng hơn lợi ích trả lời bao quát.</p>
+
+<h2>7. Kết luận và hướng cải tiến</h2>
+<p>Tiểu luận đã xây dựng và phân tích một hệ thống hỏi đáp pháp luật Việt Nam dựa trên kiến trúc RAG, trong đó Prompt Engineering đóng vai trò trung tâm để ép LLM trả lời có căn cứ. Kết quả phân tích cho thấy giải pháp hiện tại có nền tảng kỹ thuật tốt, dễ tái lập và phù hợp mục tiêu học thuật lẫn ứng dụng ban đầu. Đặc biệt, cơ chế chỉ trả lời theo CONTEXT, kết hợp fallback khi thiếu bằng chứng, là điểm then chốt để giảm bịa đặt trong miền nhạy cảm như pháp lý.</p>
+<p>Hướng cải tiến đề xuất:</p>
+<ol>
+  <li>Bổ sung hybrid retrieval và reranker để tăng độ chính xác truy hồi.</li>
+  <li>Thiết kế ngưỡng tin cậy theo score và độ phủ nguồn trước khi phát sinh đáp án.</li>
+  <li>Mở rộng đánh giá bằng các bộ câu hỏi pháp lý đa dạng hơn theo chuyên đề.</li>
+  <li>Tăng cường bảo mật triển khai: xác thực API, phân quyền, nhật ký kiểm toán.</li>
+  <li>Chuẩn hóa pipeline cập nhật văn bản pháp luật theo phiên bản hiệu lực.</li>
+</ol>
+<p>Với các cải tiến trên, hệ thống có tiềm năng trở thành nền tảng trợ lý pháp lý thông minh đáng tin cậy cho cơ quan, doanh nghiệp và người học luật.</p>
+
+<h2>8. Tài liệu tham khảo</h2>
+<p>[1] A. Vaswani et al., "Attention Is All You Need," Advances in Neural Information Processing Systems, vol. 30, 2017.</p>
+<p>[2] P. Lewis et al., "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks," Advances in Neural Information Processing Systems, vol. 33, pp. 9459-9474, 2020.</p>
+<p>[3] T. Brown et al., "Language Models are Few-Shot Learners," Advances in Neural Information Processing Systems, vol. 33, pp. 1877-1901, 2020.</p>
+<p>[4] J. Devlin et al., "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding," in Proc. NAACL-HLT, 2019.</p>
+<p>[5] Qdrant, "Qdrant Vector Database Documentation," Online. Available: https://qdrant.tech/documentation/.</p>
+<p>[6] OpenAI, "OpenAI API Reference," Online. Available: https://platform.openai.com/docs/api-reference.</p>
+<p>[7] Google, "Gemini API Documentation," Online. Available: https://ai.google.dev/.</p>
+<p>[8] Nhóm phát triển dự án, "README và mã nguồn hệ thống RAG_LAW_QA_VNM-master," truy cập tháng 03, 2026.</p>
+
+<h2>Phụ lục</h2>
+<h3>Phụ lục A. Danh sách endpoint chính</h3>
+<p class="mono">GET /health, GET /info, GET /documents, POST /ingest, DELETE /collection, POST /query, POST /query/no-rag, POST /compare, POST /evaluate.</p>
+
+<h3>Phụ lục B. Trích đoạn prompt hệ thống RAG</h3>
+<p class="mono">1) Chỉ trả lời dựa trên CONTEXT; 2) Không có thông tin thì trả lời không tìm thấy trong tài liệu; 3) Trích nguồn tên file; 4) Trả lời tiếng Việt; 5) Không bịa đặt ngoài CONTEXT.</p>
+
+<h3>Phụ lục C. Hướng dẫn tái lập nhanh</h3>
+<p>1) Tạo .env và điền API key.</p>
+<p>2) Chạy docker compose up --build -d.</p>
+<p>3) Gọi POST /ingest để nạp tài liệu.</p>
+<p>4) Gọi /query hoặc /compare để kiểm thử.</p>
+<p>5) Gọi /evaluate với QA_TEST.xlsx để lấy điểm tổng hợp.</p>
+
+</body>
+</html>
