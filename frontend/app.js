@@ -134,14 +134,32 @@ function buildSourcesHtml(retrieved) {
   </div>`;
 }
 
+function buildRankedPassagesHtml(rankedPassages) {
+  if (!rankedPassages || rankedPassages.length === 0) return "";
+  const cards = rankedPassages.map((p, idx) => `
+    <div class="passage-card">
+      <div class="passage-head">
+        <span class="passage-rank">#${p.rank || idx + 1}</span>
+        <span class="passage-meta">📄 ${escapeHtml(p.source || "unknown")}</span>
+        <span class="passage-score">${((p.score || 0) * 100).toFixed(1)}%</span>
+      </div>
+      <div class="passage-text">${escapeHtml(p.text || "")}</div>
+    </div>`).join("");
+
+  return `<div class="ranked-passages">
+    <div class="sources-title">Top đoạn liên quan trong documents (${rankedPassages.length}/3)</div>
+    ${cards}
+  </div>`;
+}
+
 function appendRagAnswer(data) {
   const msgs = document.getElementById("chatMessages");
+  const rankedPassages = data.ranked_passages || data.retrieved || [];
   msgs.innerHTML += `
     <div class="msg-assistant">
-      <div class="msg-label">🔍 RAG – Câu trả lời từ tài liệu</div>
+      <div class="msg-label">🔍 RAG – Top 3 đoạn tài liệu liên quan</div>
       <div class="bubble markdown-body">
-        ${marked.parse(data.answer)}
-        ${buildSourcesHtml(data.retrieved)}
+        ${buildRankedPassagesHtml(rankedPassages)}
       </div>
     </div>`;
   scrollBottom();
@@ -159,6 +177,7 @@ function appendNoRagAnswer(data) {
 
 function appendCompareAnswer(data) {
   const msgs = document.getElementById("chatMessages");
+  const rankedPassages = data.rag?.ranked_passages || data.rag?.retrieved || [];
   msgs.innerHTML += `
     <div class="msg-compare">
       <div class="msg-label">⚖️ So sánh RAG vs Không RAG</div>
@@ -166,8 +185,9 @@ function appendCompareAnswer(data) {
         <div class="compare-col rag">
           <div class="col-label">✅ RAG – Có tìm kiếm tài liệu</div>
           <div class="bubble markdown-body">
-            ${marked.parse(data.rag.answer)}
-            ${buildSourcesHtml(data.rag.retrieved)}
+            ${buildRankedPassagesHtml(rankedPassages)}
+            <hr/>
+            ${marked.parse(data.rag.answer || "")}
           </div>
         </div>
         <div class="compare-col no-rag">
@@ -197,7 +217,7 @@ document.getElementById("queryForm").addEventListener("submit", async (e) => {
   if (!question) return;
 
   const mode = document.getElementById("queryMode").value;
-  const topK = parseInt(document.getElementById("topK").value) || 5;
+  const topK = 3;
   const filterSource = document.getElementById("filterSource").value || null;
   const btnAsk = document.getElementById("btnAsk");
 
@@ -214,7 +234,7 @@ document.getElementById("queryForm").addEventListener("submit", async (e) => {
   try {
     let endpoint, body;
     if (mode === "rag") {
-      endpoint = "/query";
+      endpoint = "/query/top-passages";
       body = { question, top_k: topK, filter_source: filterSource };
     } else if (mode === "no-rag") {
       endpoint = "/query/no-rag";
