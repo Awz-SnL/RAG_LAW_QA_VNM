@@ -35,7 +35,9 @@ class Settings(BaseSettings):
     chunk_overlap: int = 50      # words overlap between chunks
 
     # Retrieval
-    top_k: int = 5
+    top_k: int = 3
+    retrieval_top_n: int = 3
+    enforce_top_n: bool = True
 
     class Config:
         env_file = ".env"
