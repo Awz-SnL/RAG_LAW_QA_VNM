@@ -330,6 +330,50 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 }
 .score { color: var(--accent); font-weight: 600; }
 
+.ranked-passages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.passage-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.passage-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+}
+
+.passage-rank {
+  background: #1d4ed8;
+  color: #dbeafe;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-weight: 700;
+}
+
+.passage-meta {
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.passage-score {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.passage-text {
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
 /* Spinner */
 .spinner {
   display: inline-block;
